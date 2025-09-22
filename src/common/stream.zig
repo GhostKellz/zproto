@@ -40,6 +40,13 @@ pub const Stream = struct {
         };
     }
 
+    pub fn initFromSocket(socket: std.net.Stream) Self {
+        return Self{
+            .transport = .{ .tcp = socket },
+            .allocator = std.heap.page_allocator, // Default allocator for convenience
+        };
+    }
+
     pub fn read(self: *Self, buffer: []u8) !usize {
         return switch (self.transport) {
             .tcp => |tcp| tcp.read(buffer),
@@ -79,6 +86,16 @@ pub const Stream = struct {
             const bytes_written = try self.write(data[pos..]);
             pos += bytes_written;
         }
+    }
+
+    pub fn readAtLeast(self: *Self, buffer: []u8, min_bytes: usize) !usize {
+        var total_read: usize = 0;
+        while (total_read < min_bytes and total_read < buffer.len) {
+            const bytes_read = try self.read(buffer[total_read..]);
+            if (bytes_read == 0) return StreamError.ConnectionClosed;
+            total_read += bytes_read;
+        }
+        return total_read;
     }
 
     pub fn close(self: *Self) void {

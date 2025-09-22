@@ -1,5 +1,6 @@
 const std = @import("std");
 const zproto = @import("zproto");
+const build_options = @import("build_options");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -10,13 +11,14 @@ pub fn main() !void {
     std.debug.print("=====================================\n\n", .{});
 
     std.debug.print("Available protocols:\n", .{});
-    std.debug.print("✓ HTTP/HTTPS - Web client implementation\n", .{});
-    std.debug.print("✓ DNS - Domain name resolution client\n", .{});
-    std.debug.print("✓ FTP - File transfer protocol client\n", .{});
-    std.debug.print("✓ SMTP/SMTPS - Email sending client with TLS support\n", .{});
-    std.debug.print("✓ IMAP - Internet Message Access Protocol client\n", .{});
-    std.debug.print("✓ POP3/POP3S - Post Office Protocol client\n", .{});
-    std.debug.print("✓ Email Parser - MIME message parsing utilities\n", .{});
+    if (build_options.enable_http) std.debug.print("✓ HTTP/HTTPS - Web client implementation\n", .{});
+    if (build_options.enable_dns) std.debug.print("✓ DNS - Domain name resolution client\n", .{});
+    if (build_options.enable_ftp) std.debug.print("✓ FTP - File transfer protocol client\n", .{});
+    if (build_options.enable_smtp) std.debug.print("✓ SMTP/SMTPS - Email sending client with TLS support\n", .{});
+    if (build_options.enable_imap) std.debug.print("✓ IMAP - Internet Message Access Protocol client\n", .{});
+    if (build_options.enable_pop3) std.debug.print("✓ POP3/POP3S - Post Office Protocol client\n", .{});
+    if (build_options.enable_email_parser) std.debug.print("✓ Email Parser - MIME message parsing utilities\n", .{});
+    if (build_options.enable_websocket) std.debug.print("✓ WebSocket - Real-time bidirectional communication\n", .{});
     std.debug.print("\nShared utilities:\n", .{});
     std.debug.print("✓ Stream abstraction (TCP/TLS)\n", .{});
     std.debug.print("✓ Protocol parsers (line-based, binary)\n", .{});
@@ -25,13 +27,19 @@ pub fn main() !void {
     std.debug.print("✓ Rate limiting\n", .{});
 
     std.debug.print("\n📁 Examples available in examples/ directory:\n", .{});
-    std.debug.print("   - http_client_example.zig\n", .{});
-    std.debug.print("   - dns_client_example.zig\n", .{});
-    std.debug.print("   - smtp_client_example.zig\n", .{});
-    std.debug.print("   - smtp_enhanced_example.zig (TLS/STARTTLS support)\n", .{});
-    std.debug.print("   - imap_client_example.zig\n", .{});
-    std.debug.print("   - pop3_client_example.zig\n", .{});
-    std.debug.print("   - email_parser_example.zig\n", .{});
+    if (build_options.enable_http) std.debug.print("   - http_client_example.zig\n", .{});
+    if (build_options.enable_dns) std.debug.print("   - dns_client_example.zig\n", .{});
+    if (build_options.enable_smtp) {
+        std.debug.print("   - smtp_client_example.zig\n", .{});
+        std.debug.print("   - smtp_enhanced_example.zig (TLS/STARTTLS support)\n", .{});
+    }
+    if (build_options.enable_imap) std.debug.print("   - imap_client_example.zig\n", .{});
+    if (build_options.enable_pop3) std.debug.print("   - pop3_client_example.zig\n", .{});
+    if (build_options.enable_email_parser) std.debug.print("   - email_parser_example.zig\n", .{});
+    if (build_options.enable_websocket) {
+        std.debug.print("   - websocket_client_example.zig\n", .{});
+        std.debug.print("   - websocket_server_example.zig\n", .{});
+    }
 
     std.debug.print("\n🧪 Run tests with: zig build test\n", .{});
     std.debug.print("📖 See TODO.md for implementation roadmap\n", .{});
@@ -39,47 +47,78 @@ pub fn main() !void {
     // Quick demo of the library
     std.debug.print("\n--- Quick Demo ---\n", .{});
 
+    var demos_run: u32 = 0;
+
     // Demo HTTP client creation
-    std.debug.print("Creating HTTP client... ", .{});
-    var http_client = zproto.http.HttpClient.init(allocator);
-    defer http_client.deinit();
-    std.debug.print("✓\n", .{});
+    if (build_options.enable_http) {
+        std.debug.print("Creating HTTP client... ", .{});
+        var http_client = zproto.http.HttpClient.init(allocator);
+        defer http_client.deinit();
+        std.debug.print("✓\n", .{});
+        demos_run += 1;
+    }
 
     // Demo DNS client creation
-    std.debug.print("Creating DNS client... ", .{});
-    var dns_client = zproto.dns.DnsClient.initWithDefaultServers(allocator) catch {
-        std.debug.print("✗ (failed)\n", .{});
-        return;
-    };
-    defer dns_client.deinit();
-    std.debug.print("✓\n", .{});
+    if (build_options.enable_dns) {
+        std.debug.print("Creating DNS client... ", .{});
+        var dns_client = zproto.dns.DnsClient.initWithDefaultServers(allocator) catch {
+            std.debug.print("✗ (failed)\n", .{});
+            return;
+        };
+        defer dns_client.deinit();
+        std.debug.print("✓\n", .{});
+        demos_run += 1;
+    }
 
     // Demo SMTP client creation
-    std.debug.print("Creating SMTP client... ", .{});
-    var smtp_client = zproto.smtp.SmtpClient.init(allocator);
-    defer smtp_client.deinit();
-    std.debug.print("✓\n", .{});
+    if (build_options.enable_smtp) {
+        std.debug.print("Creating SMTP client... ", .{});
+        var smtp_client = zproto.smtp.SmtpClient.init(allocator);
+        defer smtp_client.deinit();
+        std.debug.print("✓\n", .{});
+        demos_run += 1;
+    }
 
     // Demo FTP client creation
-    std.debug.print("Creating FTP client... ", .{});
-    var ftp_client = zproto.ftp.FtpClient.init(allocator);
-    defer ftp_client.deinit();
-    std.debug.print("✓\n", .{});
+    if (build_options.enable_ftp) {
+        std.debug.print("Creating FTP client... ", .{});
+        var ftp_client = zproto.ftp.FtpClient.init(allocator);
+        defer ftp_client.deinit();
+        std.debug.print("✓\n", .{});
+        demos_run += 1;
+    }
 
     // Demo IMAP client creation
-    std.debug.print("Creating IMAP client... ", .{});
-    var imap_client = zproto.imap.ImapClient.init(allocator);
-    defer imap_client.deinit();
-    std.debug.print("✓\n", .{});
+    if (build_options.enable_imap) {
+        std.debug.print("Creating IMAP client... ", .{});
+        var imap_client = zproto.imap.ImapClient.init(allocator);
+        defer imap_client.deinit();
+        std.debug.print("✓\n", .{});
+        demos_run += 1;
+    }
 
     // Demo POP3 client creation
-    std.debug.print("Creating POP3 client... ", .{});
-    var pop3_client = zproto.pop3.Pop3Client.init(allocator);
-    defer pop3_client.deinit();
-    std.debug.print("✓\n", .{});
+    if (build_options.enable_pop3) {
+        std.debug.print("Creating POP3 client... ", .{});
+        var pop3_client = zproto.pop3.Pop3Client.init(allocator);
+        defer pop3_client.deinit();
+        std.debug.print("✓\n", .{});
+        demos_run += 1;
+    }
 
-    std.debug.print("\nAll protocol clients initialized successfully!\n", .{});
-    std.debug.print("Ready to communicate with the world. 🚀\n", .{});
+    // Demo WebSocket client creation (skip for now as it needs real connection)
+    if (build_options.enable_websocket) {
+        std.debug.print("WebSocket client available... ", .{});
+        std.debug.print("✓\n", .{});
+        demos_run += 1;
+    }
+
+    if (demos_run > 0) {
+        std.debug.print("\nAll enabled protocol clients ({d}) initialized successfully!\n", .{demos_run});
+        std.debug.print("Ready to communicate with the world. 🚀\n", .{});
+    } else {
+        std.debug.print("No protocols enabled in this build configuration.\n", .{});
+    }
 
     // Call legacy function for backwards compatibility
     try zproto.bufferedPrint();

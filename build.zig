@@ -21,6 +21,32 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    // Feature flags for modular protocol support
+    const enable_http = b.option(bool, "enable-http", "Enable HTTP/HTTPS protocol support") orelse true;
+    const enable_dns = b.option(bool, "enable-dns", "Enable DNS protocol support") orelse true;
+    const enable_ftp = b.option(bool, "enable-ftp", "Enable FTP protocol support") orelse true;
+    const enable_smtp = b.option(bool, "enable-smtp", "Enable SMTP protocol support") orelse true;
+    const enable_imap = b.option(bool, "enable-imap", "Enable IMAP protocol support") orelse true;
+    const enable_pop3 = b.option(bool, "enable-pop3", "Enable POP3 protocol support") orelse true;
+    const enable_websocket = b.option(bool, "enable-websocket", "Enable WebSocket protocol support") orelse true;
+    const enable_email_parser = b.option(bool, "enable-email-parser", "Enable email parsing utilities") orelse true;
+
+    // Convenience flags for common use cases
+    const http_only = b.option(bool, "http-only", "Enable only HTTP protocol (overrides other flags)") orelse false;
+    const dns_only = b.option(bool, "dns-only", "Enable only DNS protocol (overrides other flags)") orelse false;
+    const websocket_only = b.option(bool, "websocket-only", "Enable only WebSocket protocol (overrides other flags)") orelse false;
+    const email_only = b.option(bool, "email-only", "Enable only email protocols (SMTP, IMAP, POP3, email-parser)") orelse false;
+
+    // Resolve feature flags - convenience flags override individual flags
+    const final_enable_http = if (http_only) true else if (dns_only or websocket_only or email_only) false else enable_http;
+    const final_enable_dns = if (dns_only) true else if (http_only or websocket_only or email_only) false else enable_dns;
+    const final_enable_ftp = if (email_only) false else if (http_only or dns_only or websocket_only) false else enable_ftp;
+    const final_enable_smtp = if (email_only) true else if (http_only or dns_only or websocket_only) false else enable_smtp;
+    const final_enable_imap = if (email_only) true else if (http_only or dns_only or websocket_only) false else enable_imap;
+    const final_enable_pop3 = if (email_only) true else if (http_only or dns_only or websocket_only) false else enable_pop3;
+    const final_enable_websocket = if (websocket_only) true else if (http_only or dns_only or email_only) false else enable_websocket;
+    const final_enable_email_parser = if (email_only) true else if (http_only or dns_only or websocket_only) false else enable_email_parser;
+
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
     // Zig modules are the preferred way of making Zig code available to consumers.
@@ -40,6 +66,20 @@ pub fn build(b: *std.Build) void {
         // which requires us to specify a target.
         .target = target,
     });
+
+    // Add build options to pass feature flags to the code
+    const mod_options = b.addOptions();
+    mod_options.addOption(bool, "enable_http", final_enable_http);
+    mod_options.addOption(bool, "enable_dns", final_enable_dns);
+    mod_options.addOption(bool, "enable_ftp", final_enable_ftp);
+    mod_options.addOption(bool, "enable_smtp", final_enable_smtp);
+    mod_options.addOption(bool, "enable_imap", final_enable_imap);
+    mod_options.addOption(bool, "enable_pop3", final_enable_pop3);
+    mod_options.addOption(bool, "enable_websocket", final_enable_websocket);
+    mod_options.addOption(bool, "enable_email_parser", final_enable_email_parser);
+
+    const build_options_module = mod_options.createModule();
+    mod.addImport("build_options", build_options_module);
 
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
@@ -79,6 +119,7 @@ pub fn build(b: *std.Build) void {
                 // can be extremely useful in case of collisions (which can happen
                 // importing modules from different packages).
                 .{ .name = "zproto", .module = mod },
+                .{ .name = "build_options", .module = build_options_module },
             },
         }),
     });
@@ -109,18 +150,21 @@ pub fn build(b: *std.Build) void {
     // installation directory rather than directly from within the cache directory.
     run_cmd.step.dependOn(b.getInstallStep());
 
-    // Add examples
-    const examples = [_]struct { name: []const u8, src: []const u8 }{
-        .{ .name = "http-example", .src = "examples/http_client_example.zig" },
-        .{ .name = "dns-example", .src = "examples/dns_client_example.zig" },
-        .{ .name = "smtp-example", .src = "examples/smtp_client_example.zig" },
-        .{ .name = "smtp-enhanced-example", .src = "examples/smtp_enhanced_example.zig" },
-        .{ .name = "imap-example", .src = "examples/imap_client_example.zig" },
-        .{ .name = "pop3-example", .src = "examples/pop3_client_example.zig" },
-        .{ .name = "email-parser-example", .src = "examples/email_parser_example.zig" },
+    // Add examples conditionally based on enabled features
+    const examples = [_]struct { name: []const u8, src: []const u8, enabled: bool }{
+        .{ .name = "http-example", .src = "examples/http_client_example.zig", .enabled = final_enable_http },
+        .{ .name = "dns-example", .src = "examples/dns_client_example.zig", .enabled = final_enable_dns },
+        .{ .name = "smtp-example", .src = "examples/smtp_client_example.zig", .enabled = final_enable_smtp },
+        .{ .name = "smtp-enhanced-example", .src = "examples/smtp_enhanced_example.zig", .enabled = final_enable_smtp },
+        .{ .name = "imap-example", .src = "examples/imap_client_example.zig", .enabled = final_enable_imap },
+        .{ .name = "pop3-example", .src = "examples/pop3_client_example.zig", .enabled = final_enable_pop3 },
+        .{ .name = "email-parser-example", .src = "examples/email_parser_example.zig", .enabled = final_enable_email_parser },
+        .{ .name = "websocket-client-example", .src = "examples/websocket_client_example.zig", .enabled = final_enable_websocket },
+        .{ .name = "websocket-server-example", .src = "examples/websocket_server_example.zig", .enabled = final_enable_websocket },
     };
 
     for (examples) |example| {
+        if (!example.enabled) continue;
         const example_exe = b.addExecutable(.{
             .name = example.name,
             .root_module = b.createModule(.{
@@ -129,6 +173,7 @@ pub fn build(b: *std.Build) void {
                 .optimize = optimize,
                 .imports = &.{
                     .{ .name = "zproto", .module = mod },
+                    .{ .name = "build_options", .module = mod_options.createModule() },
                 },
             }),
         });
@@ -151,6 +196,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "zproto", .module = mod },
+                .{ .name = "build_options", .module = build_options_module },
             },
         }),
     });
